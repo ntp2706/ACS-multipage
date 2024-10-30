@@ -11,15 +11,15 @@
 #define SSID "NTP"
 #define PASSWORD "qwert123"
 
-const String FIREBASE_API_KEY = "AIzaSyCiTkxYgLczRhcC0_NDYNGGr48OCYGH8F0";
 const String FIREBASE_STORAGE_BUCKET = "accesscontrolsystem-4f265.appspot.com";
 
-const String esp8266LocalIP = "192.168.76.100";
+const String esp8266LocalIP = "192.168.193.100";
 
 String Feedback=""; 
 String Command="";
 String cmd="";
 String pointer="";
+int flashValue = 0;
 
 String nameSend;
 String uniSend;
@@ -29,8 +29,8 @@ String timestampSend;
 String countDatabaseSend;
 String countDatabaseReceive;
 
-String countLoggingSend;
-String countLoggingReceive;
+String countLogSend;
+String countLogReceive;
 
 byte receiveState=0;
 byte cmdState=1;
@@ -60,6 +60,29 @@ WiFiServer server(80);
 WiFiClient client;
 WebSocketsClient webSocket;
 
+void sendCountLog() {
+  if(!SD_MMC.begin()) {
+    Serial.println("Không truy cập được thẻ SD");
+    return;
+  }
+  fs::FS &fs = SD_MMC; 
+  File fileLog = fs.open("/countLog.txt");
+  if (fileLog) {
+    countLogSend = fileLog.readStringUntil('\n');
+  } else {
+      Serial.println("Lỗi mở file countLog.txt");
+    }
+  fileLog.close();
+  SD_MMC.end();
+  String countLogTemp = "newCountLog:" + countLogSend;
+  webSocket.sendTXT(countLogTemp);
+  Serial.print("Đã gửi CountLog: ");
+  Serial.println(countLogSend);
+
+  ledcAttachChannel(4, 5000, 8, 4);
+  ledcWrite(4, flashValue);  
+}
+
 void handleWebSocketMessage(void *arg, uint8_t *data, size_t len) {
   String message = String((char *)data).substring(0, len);
 
@@ -88,38 +111,40 @@ void handleWebSocketMessage(void *arg, uint8_t *data, size_t len) {
       }
   }
 
-  if (message.startsWith("newCountLogging:")) {
-    countLoggingReceive = message.substring(strlen("newCountLogging:"));
+  if (message.startsWith("newCountLog:")) {
+    countLogReceive = message.substring(strlen("newCountLog:"));
 
     Serial.println("Đã nhận thông tin:");
-    Serial.print("newCountLogging: ");
-    Serial.println(countLoggingReceive);
+    Serial.print("newCountLog: ");
+    Serial.println(countLogReceive);
 
-    File file = SD_MMC.open("/countLogging.txt", FILE_WRITE);
+    File file = SD_MMC.open("/countLog.txt", FILE_WRITE);
     if (file) {
-      file.println(countLoggingReceive);
+      file.println(countLogReceive);
       file.close();
-      countLoggingSend = "newCountLogging:" + countLoggingReceive;
-      webSocket.sendTXT(countLoggingSend);
-      Serial.print("Đã cập nhật newCountLogging: ");
-      Serial.println(countLoggingReceive);
+      countLogSend = "newCountLog:" + countLogReceive;
+      webSocket.sendTXT(countLogSend);
+      Serial.print("Đã cập nhật newCountLog: ");
+      Serial.println(countLogReceive);
     } else {
-        Serial.println("Lỗi cập nhật newCountLogging");
+        Serial.println("Lỗi cập nhật newCountLog");
         file.close();
         webSocket.sendTXT("processError");
       }
+    sendCountLog();
   }
   
   SD_MMC.end();
 
-  pinMode(4, OUTPUT);
-  digitalWrite(4, LOW);
+  ledcAttachChannel(4, 5000, 8, 4);
+  ledcWrite(4, flashValue);
 }
 
 void onWebSocketEvent(WStype_t type, uint8_t *payload, size_t length) {
   switch (type) {
     case WStype_CONNECTED:
       Serial.println("Đã kết nối vào WebSocket");
+      sendCountLog();
       break;
     case WStype_DISCONNECTED:
       Serial.println("Đã ngắt kết nối với WebSocket");
@@ -185,6 +210,7 @@ void setup() {
   }
 
   s->set_framesize(s, FRAMESIZE_QVGA);
+  s->set_hmirror(s, 1); 
 
   WiFi.begin(SSID, PASSWORD);
   while (WiFi.status() != WL_CONNECTED) {
@@ -224,17 +250,17 @@ void setup() {
 
   delay(100);
 
-  if (!SD_MMC.exists("/countLoggingbase.txt")) {
-    Serial.println("Tạo file countLogging.txt bắt đầu bằng 2");
+  if (!SD_MMC.exists("/countLog.txt")) {
+    Serial.println("Tạo file countLog.txt bắt đầu bằng 2");
     while (true) {
-      File file = SD_MMC.open("/countLogging.txt", FILE_WRITE);
+      File file = SD_MMC.open("/countLog.txt", FILE_WRITE);
       if (file) {
         file.println("2");
         file.close();
-        Serial.println("Tạo file countLogging.txt thành công");
+        Serial.println("Tạo file countLog.txt thành công");
         break;
       } else {
-          Serial.println("Tạo lại file countLogging.txt");
+          Serial.println("Tạo lại file countLog.txt");
           delay(500);
         }
     }
@@ -242,8 +268,8 @@ void setup() {
 
   SD_MMC.end();
 
-  pinMode(4, OUTPUT);
-  digitalWrite(4, LOW);
+  ledcAttachChannel(4, 5000, 8, 4);
+  ledcWrite(4, flashValue);
 }
 
 static const char PROGMEM INDEX_HTML[] = R"rawliteral(
@@ -257,11 +283,14 @@ static const char PROGMEM INDEX_HTML[] = R"rawliteral(
   <link href="https://fonts.googleapis.com/css2?family=Roboto&display=swap" rel="stylesheet">
 <style>
     body {font-family: 'Roboto', sans-serif; background-color: #f4f4f4;}
-    input:checked+.slider {background-color: #45a049}
-    input:checked+.slider:before {-webkit-transform: translateX(35.5px); -ms-transform: translateX(35.5px); transform: translateX(35.5px)}
+    .flashContainer {display: flex; flex-direction: column; align-items: center; margin: 28px auto auto 1024px;}
+    .flashLabel img {width: 40px; height: 40px; cursor: pointer; border-radius: 10px; transition: transform 0.3s, box-shadow 0.3s;}
+    .flashLabel img:hover {transform: scale(1.1); box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);}
+    .barContainer {display: flex; margin-top: 0px; padding: 10px; background-color: #fff; border-radius: 10px; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1); transition: opacity 0.3s, transform 0.3s;}
+    .flashBar {width: 4px; height: 200px; -webkit-appearance: slider-vertical;}
     input[type="text"] {width: 520px; padding: 10px; margin-top: 10px; margin-bottom: 10px; background-color: #fff; border: 1px solid #ccc; box-sizing: border-box; border-radius: 4px; cursor: pointer; font-size: 20px; font-weight: bolder;}
     input[type="text"]:focus {outline: none; border-color: #4CAF50; box-shadow: 0 0 5px #4CAF50;}
-    .input {display: flex; flex-direction: row; margin-top: 0px; width: 900px; margin: 12px auto; margin-top: 40px; padding: 20px; box-shadow: 0px 0px 20px rgba(0,0,0,0.2); background-color: #fff; border-radius: 5px;}
+    .input {display: flex; flex-direction: row; width: 900px; margin: -40px auto auto auto; padding: 20px; box-shadow: 0px 0px 20px rgba(0,0,0,0.2); background-color: #fff; border-radius: 5px;}
     .input > div {margin: 10px auto; padding: 10px;}
     .inputText {transform: translateX(20px);}
     .inputCamera {width: 320px; height: 300px; display: flex; flex-direction: column; background-color: #fff;}
@@ -270,8 +299,8 @@ static const char PROGMEM INDEX_HTML[] = R"rawliteral(
     button:hover {background-color: #45a049; transform: scale(1.1); font-weight: bold;}
     .submit {width: 520px; padding: 10px; margin-top: 10px; background-color: #fff; border: 2px solid #4CAF50; color: #4CAF50; box-sizing: border-box; border-radius: 4px; cursor: pointer; font-size: 15px;}
     .submit:hover {background-color: #4CAF50; color: #fff;}
-    .showListContainer {width: 40px; height: 40px; margin: auto auto; transform: translateX(-440px); text-align: center; background-color: #4CAF50; border: 2px solid #fff; border-radius: 10px; display: flex;}
-    .showListBtn {width: 0; height: 0; border-left: 12px solid transparent; border-right: 12px solid transparent; border-top: 16px solid #fff; cursor: pointer; margin: auto auto;}
+    .showListContainer {width: 40px; height: 40px; margin: 20px auto auto auto; transform: translateX(-440px); text-align: center; background-color: #4CAF50; border: 2px solid #fff; border-radius: 10px; display: flex;}
+    .showListBtn {width: 0; height: 0; border-left: 12px solid transparent; border-right: 12px solid transparent; border-top: 16px solid #fff; cursor: pointer; margin: auto auto auto auto;}
     .showListBtn input {display: none;}
     .list {display: flex; flex-direction: row; margin-top: 0px; width: 900px; margin: 12px auto; padding: 20px; box-shadow: 0px 0px 20px rgba(0,0,0,0.2); background-color: #fff; border-radius: 5px;}
     .list > div {margin: 10px auto;}
@@ -280,6 +309,15 @@ static const char PROGMEM INDEX_HTML[] = R"rawliteral(
   </style>
 </head>
 <body>
+  <div class="flashContainer">
+    <input type="checkbox" class="hidden" id="flashCheckbox" onchange="showBar(this)">
+    <label class="flashLabel" for="flashCheckbox">
+      <img src="https://firebasestorage.googleapis.com/v0/b/accesscontrolsystem-4f265.appspot.com/o/src%2Flight.jpg?alt=media">
+    </label>
+    <div class="barContainer hidden" id="barContainer">
+      <input type="range" class="default-action flashBar" id="flash" min="0" max="255" value="0" orient="vertical">
+    </div>
+  </div>
   <div class="input" id="inputContainer">
     <div class="inputCamera">
       <img id="stream" src="" />
@@ -320,6 +358,18 @@ static const char PROGMEM INDEX_HTML[] = R"rawliteral(
   
 <script>
 
+function showBar(checkbox) {
+    const barContainer = document.getElementById('barContainer');
+    const inputContainer = document.getElementById('inputContainer');
+    if (checkbox.checked) {
+      barContainer.classList.remove('hidden');
+      inputContainer.style.margin = '-264px auto auto auto';
+    } else {
+        barContainer.classList.add('hidden');
+        inputContainer.style.margin = '-40px auto auto auto';
+      }
+  }
+
 function showList(checkbox) {
   const listContainer = document.getElementById('listContainer');
   const listImagesBtn = document.getElementById('listImages');
@@ -344,28 +394,31 @@ document.addEventListener('DOMContentLoaded', function (event) {
   const saveBtn = document.getElementById('saveImage');
   const listBtn = document.getElementById('listImages');
   const ifr = document.getElementById('ifr');
+  const flash = document.getElementById('flash');
      
-  var myTimer;
-  var timestampTemp;
-  var restartCount = 0;    
+  var timestampTemp;  
   var streamState = false;
 
   streamBtn.onclick = function (event) {
-    clearInterval(myTimer);
     streamState = true;
-    myTimer = setInterval(function(){ error_handle(); }, 5000); 
     streamContainer.src = location.origin+'/?getstill='+Math.random();
   };
 
   streamContainer.onload = function (event) {
-    clearInterval(myTimer);
-    restartCount = 0;      
     if (!streamState) return;
     streamBtn.click();
   };
+
+  function updateValue(flash) {
+      let value;
+      value = flash.value;
+      var query = `${baseHost}/?flash=${value}`;
+      fetch(query)
+    }
+
+  flash.onchange = () => updateValue(flash);
   
   stopBtn.onclick = function (event) {
-    clearInterval(myTimer);    
     streamState=false;    
     window.stop();
   }
@@ -454,8 +507,8 @@ void getStill() {
     }
   }
 
-  pinMode(4, OUTPUT);
-  digitalWrite(4, LOW);
+  ledcAttachChannel(4, 5000, 8, 4);
+  ledcWrite(4, flashValue);
 }
 
 String saveImage(String filename) {    
@@ -488,8 +541,8 @@ String saveImage(String filename) {
   file.close();
   SD_MMC.end();
 
-  pinMode(4, OUTPUT);
-  digitalWrite(4, LOW);
+  ledcAttachChannel(4, 5000, 8, 4);
+  ledcWrite(4, flashValue);
 
   return response;
 }
@@ -549,8 +602,8 @@ void postImage(String filename) {
   file.close();
   SD_MMC.end();
 
-  pinMode(4, OUTPUT);
-  digitalWrite(4, LOW);  
+  ledcAttachChannel(4, 5000, 8, 4);
+  ledcWrite(4, flashValue);  
 }
 
 String urlDecode(const String &str) {
@@ -588,19 +641,6 @@ void sendInfo(String encodeQuery) {
       fileDatabase.close();
       webSocket.sendTXT("processError");
     }
-
-  delay(100);
-
-  File fileLogging = fs.open("/countLogging.txt");
-  if (fileLogging) {
-    countLoggingSend = fileLogging.readStringUntil('\n');
-    fileLogging.close();
-  } else {
-      Serial.println("Lỗi mở file countLogging.txt");
-      fileLogging.close();
-      webSocket.sendTXT("processError");
-    }
-  
   
   SD_MMC.end();
 
@@ -656,8 +696,11 @@ void sendInfo(String encodeQuery) {
   Serial.print("Tên ảnh: ");
   Serial.println(timestampSend);
 
-  String message = nameSend + "," + uniSend + "," + roomSend + "," + timestampSend + "," + countDatabaseSend + "," + countLoggingSend;
+  String message = nameSend + "," + uniSend + "," + roomSend + "," + timestampSend + "," + countDatabaseSend;
   webSocket.sendTXT(message);
+
+  ledcAttachChannel(4, 5000, 8, 4);
+  ledcWrite(4, flashValue);
 }
 
 String listImages() {
@@ -693,8 +736,8 @@ String listImages() {
   file.close();
   SD_MMC.end();
 
-  pinMode(4, OUTPUT);
-  digitalWrite(4, LOW);  
+  ledcAttachChannel(4, 5000, 8, 4);
+  ledcWrite(4, flashValue);  
   
   return list;
 }
@@ -716,8 +759,8 @@ String deleteImage(String filename) {
   file.close();
   SD_MMC.end();
 
-  pinMode(4, OUTPUT);
-  digitalWrite(4, LOW);  
+  ledcAttachChannel(4, 5000, 8, 4);
+  ledcWrite(4, flashValue);  
 
   return message;
 }
@@ -753,8 +796,8 @@ void showImage() {
     SD_MMC.end();    
   }
 
-  pinMode(4, OUTPUT);
-  digitalWrite(4, LOW);
+  ledcAttachChannel(4, 5000, 8, 4);
+  ledcWrite(4, flashValue);
 }
 
 void getCommand(char c) {
@@ -788,11 +831,15 @@ void executeCommand() {
       saveImage(pointer);
       delay(100);
       postImage(pointer);
-    } else if (cmd=="listimages") {
-        Feedback=listImages();
-      } else if (cmd=="deleteimage") {
-          Feedback=deleteImage(pointer)+"<br>"+listImages();
-        } else Feedback="Command is not defined.";
+    } else if (cmd=="flash") {
+        ledcAttachChannel(4, 5000, 8, 4);
+        flashValue = pointer.toInt();
+        ledcWrite(4, flashValue);  
+      } else if (cmd=="listimages") {
+          Feedback=listImages();
+        } else if (cmd=="deleteimage") {
+            Feedback=deleteImage(pointer)+"<br>"+listImages();
+          } else Feedback="Command is not defined.";
   if (Feedback=="") Feedback = Command;  
 }
 

@@ -62,8 +62,8 @@ String timestampReceive;
 String countDatabaseReceive;
 String countDatabaseSend;
 
-String countLoggingReceive;
-String countLoggingSend;
+String countLogReceive;
+String countLogSend;
 
 String displayGreen = "none";
 String displayGreenNotify = "none";
@@ -85,9 +85,9 @@ void writeIntToBlock(int block, int data);
 int readIntFromBlock(int block);
 void getCurrentTime();
 void databaseInit();
-void loggingInit();
+void logInit();
 void writeToDatabase(int row);
-void writeToLogging(int row);
+void writeToLog(int row);
 void tokenStatusCallback(TokenInfo info);
 void onWebSocketEvent(uint8_t num, WStype_t type, uint8_t *payload, size_t length);
 
@@ -101,11 +101,11 @@ void responseError() {
 
 void handleWebSocketMessage(void *arg, uint8_t *data, size_t len) {
   String message = String((char *)data).substring(0, len);
-  if (message.startsWith("newCountLogging:")) {
-    countLoggingReceive = message.substring(strlen("newCountLogging:"));
+  if (message.startsWith("newCountLog:")) {
+    countLogReceive = message.substring(strlen("newCountLog:"));
     Serial.println("Đã nhận thông tin:");
-    Serial.print("newCountLogging: ");
-    Serial.println(countLoggingReceive);
+    Serial.print("newCountLog: ");
+    Serial.println(countLogReceive);
   } else if (message.startsWith("processError")) {
       responseError();
     } else {
@@ -115,14 +115,12 @@ void handleWebSocketMessage(void *arg, uint8_t *data, size_t len) {
         int index2 = message.indexOf(',', index1 + 1);
         int index3 = message.indexOf(',', index2 + 1);
         int index4 = message.indexOf(',', index3 + 1);
-        int index5 = message.indexOf(',', index4 + 1);
 
         nameReceive = message.substring(0, index1);
         uniReceive = message.substring(index1 + 1, index2);
         roomReceive = message.substring(index2 + 1, index3);
         timestampReceive = message.substring(index3 + 1, index4);
-        countDatabaseReceive = message.substring(index4 + 1, index5);
-        countLoggingReceive = message.substring(index5 + 1);
+        countDatabaseReceive = message.substring(index4 + 1);
 
         displayGreen = "block";
         greenTitle = "Đã nhận thông tin";
@@ -141,8 +139,6 @@ void handleWebSocketMessage(void *arg, uint8_t *data, size_t len) {
         Serial.println(".jpg");
         Serial.print("countDatabase: ");
         Serial.println(countDatabaseReceive);
-        Serial.print("countLogging: ");
-        Serial.println(countLoggingReceive);
 
         addNewUser = true;
         readInfo = false;
@@ -178,7 +174,7 @@ void setup() {
   GSheet.begin(CLIENT_EMAIL, PROJECT_ID, PRIVATE_KEY);
 
   databaseInit();
-  loggingInit();
+  logInit();
 
   SPI.begin();            
   mfrc522.PCD_Init();     
@@ -304,14 +300,14 @@ void updatepage(bool isAjaxRequest) {
           "xhttp.send();" 
           "if (document.getElementById('notifyInfo').style.display === 'block') {"
             "setTimeout(function() {"
-              "document.getElementById('notifyInfo').style.display = 'none';"
               "updateDisplayGreen();"
+              "document.getElementById('notifyInfo').style.display = 'none';"
             "}, 5000);"
           "}"
           "if (document.getElementById('notifyGeneral').style.display === 'block') {"
             "setTimeout(function() {"
-              "document.getElementById('notifyGeneral').style.display = 'none';"
               "updateDisplayRed();"
+              "document.getElementById('notifyGeneral').style.display = 'none';"
             "}, 3000);"
           "}"
         "}, 500);"
@@ -429,11 +425,11 @@ void loop() {
     timestamp = readStringFromBlocks(16, 3);
     imagesrc = "https://firebasestorage.googleapis.com/v0/b/"+ FIREBASE_STORAGE_BUCKET + "/o/" + timestamp + ".jpg?alt=media";
 
-    int countLoggingTemp = countLoggingReceive.toInt();
-    writeToLogging(countLoggingTemp);
-    countLoggingTemp += 1;
-    countLoggingSend = "newCountLogging:" + String(countLoggingTemp);
-    webSocket.sendTXT(clientID, countLoggingSend);
+    int countLogTemp = countLogReceive.toInt();
+    writeToLog(countLogTemp);
+    countLogTemp += 1;
+    countLogSend = "newCountLog:" + String(countLogTemp);
+    webSocket.sendTXT(clientID, countLogSend);
 
     if ((name!="")&&(university!="")&&(room!="")&&(timestamp!="")) {
       Serial.println("Đã đọc dữ liệu từ thẻ: ");
@@ -606,25 +602,25 @@ void writeToDatabase(int row) {
   }
 }
 
-void loggingInit() {
+void logInit() {
   bool ready = GSheet.ready();
   if (ready) {
     FirebaseJson response;
-    FirebaseJson loggingHeaders;
+    FirebaseJson logHeaders;
 
-    loggingHeaders.set("values/[0]/[0]", "Ngày");
-    loggingHeaders.set("values/[0]/[1]", "Giờ");
-    loggingHeaders.set("values/[0]/[2]", "Họ và tên");
-    loggingHeaders.set("values/[0]/[3]", "Trường");
-    loggingHeaders.set("values/[0]/[4]", "Phòng");
+    logHeaders.set("values/[0]/[0]", "Ngày");
+    logHeaders.set("values/[0]/[1]", "Giờ");
+    logHeaders.set("values/[0]/[2]", "Họ và tên");
+    logHeaders.set("values/[0]/[3]", "Trường");
+    logHeaders.set("values/[0]/[4]", "Phòng");
 
-    GSheet.values.update(&response, SPREADSHEET_ID, "Logging!A1:E1", &loggingHeaders);
+    GSheet.values.update(&response, SPREADSHEET_ID, "Log!A1:E1", &logHeaders);
     
     response.toString(Serial, true);
   }
 }
 
-void writeToLogging(int row) {
+void writeToLog(int row) {
   bool ready = GSheet.ready();
   if (ready) {
     timeClient.update();
@@ -639,16 +635,16 @@ void writeToLogging(int row) {
     String currentDate = currentMonthName + " " + String(monthDay) + ", " + String(currentYear);
 
     FirebaseJson response;
-    FirebaseJson loggingData;
+    FirebaseJson logData;
 
-    loggingData.set("values/[0]/[0]", currentDate);
-    loggingData.set("values/[0]/[1]", formattedTime);
-    loggingData.set("values/[0]/[2]", name);
-    loggingData.set("values/[0]/[3]", university);
-    loggingData.set("values/[0]/[4]", room);
+    logData.set("values/[0]/[0]", currentDate);
+    logData.set("values/[0]/[1]", formattedTime);
+    logData.set("values/[0]/[2]", name);
+    logData.set("values/[0]/[3]", university);
+    logData.set("values/[0]/[4]", room);
 
-    String range = "Logging!A" + String(row) + ":E" + String(row);
-    GSheet.values.update(&response, SPREADSHEET_ID, range, &loggingData);
+    String range = "Log!A" + String(row) + ":E" + String(row);
+    GSheet.values.update(&response, SPREADSHEET_ID, range, &logData);
 
     response.toString(Serial, true);
   }
