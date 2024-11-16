@@ -13,7 +13,7 @@
 
 const String FIREBASE_STORAGE_BUCKET = "accesscontrolsystem-4f265.appspot.com";
 
-const String esp8266LocalIP = "192.168.193.100";
+const String esp8266LocalIP = "192.168.73.100";
 
 String Feedback=""; 
 String Command="";
@@ -283,14 +283,14 @@ static const char PROGMEM INDEX_HTML[] = R"rawliteral(
   <link href="https://fonts.googleapis.com/css2?family=Roboto&display=swap" rel="stylesheet">
 <style>
     body {font-family: 'Roboto', sans-serif; background-color: #f4f4f4;}
-    .flashContainer {display: flex; flex-direction: column; align-items: center; margin: 28px auto auto 1024px;}
-    .flashLabel img {width: 40px; height: 40px; cursor: pointer; border-radius: 10px; transition: transform 0.3s, box-shadow 0.3s;}
-    .flashLabel img:hover {transform: scale(1.1); box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);}
-    .barContainer {display: flex; margin-top: 0px; padding: 10px; background-color: #fff; border-radius: 10px; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1); transition: opacity 0.3s, transform 0.3s;}
-    .flashBar {width: 4px; height: 200px; -webkit-appearance: slider-vertical;}
+    .flashContainer { display: flex; flex-direction: column; align-items: center; position: absolute; top: 10px; right: 10px; }
+    .flashLabel img { width: 40px; height: 40px; cursor: pointer; border-radius: 10px; transition: transform 0.3s, box-shadow 0.3s; }
+    .flashLabel img:hover { transform: scale(1.1); box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2); }
+    .barContainer { display: flex; margin-top: 0px; padding: 10px; background-color: #fff; border-radius: 10px; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1); transition: opacity 0.3s, transform 0.3s; }
+    .flashBar { width: 4px; height: 140px; -webkit-appearance: slider-vertical; }
     input[type="text"] {width: 520px; padding: 10px; margin-top: 10px; margin-bottom: 10px; background-color: #fff; border: 1px solid #ccc; box-sizing: border-box; border-radius: 4px; cursor: pointer; font-size: 20px; font-weight: bolder;}
     input[type="text"]:focus {outline: none; border-color: #4CAF50; box-shadow: 0 0 5px #4CAF50;}
-    .input {display: flex; flex-direction: row; width: 900px; margin: -40px auto auto auto; padding: 20px; box-shadow: 0px 0px 20px rgba(0,0,0,0.2); background-color: #fff; border-radius: 5px;}
+    .input {display: flex; flex-direction: row; width: 900px; margin: 40px auto auto auto; padding: 20px; box-shadow: 0px 0px 20px rgba(0,0,0,0.2); background-color: #fff; border-radius: 5px;}
     .input > div {margin: 10px auto; padding: 10px;}
     .inputText {transform: translateX(20px);}
     .inputCamera {width: 320px; height: 300px; display: flex; flex-direction: column; background-color: #fff;}
@@ -299,11 +299,6 @@ static const char PROGMEM INDEX_HTML[] = R"rawliteral(
     button:hover {background-color: #45a049; transform: scale(1.1); font-weight: bold;}
     .submit {width: 520px; padding: 10px; margin-top: 10px; background-color: #fff; border: 2px solid #4CAF50; color: #4CAF50; box-sizing: border-box; border-radius: 4px; cursor: pointer; font-size: 15px;}
     .submit:hover {background-color: #4CAF50; color: #fff;}
-    .showListContainer {width: 40px; height: 40px; margin: 20px auto auto auto; transform: translateX(-440px); text-align: center; background-color: #4CAF50; border: 2px solid #fff; border-radius: 10px; display: flex;}
-    .showListBtn {width: 0; height: 0; border-left: 12px solid transparent; border-right: 12px solid transparent; border-top: 16px solid #fff; cursor: pointer; margin: auto auto auto auto;}
-    .showListBtn input {display: none;}
-    .list {display: flex; flex-direction: row; margin-top: 0px; width: 900px; margin: 12px auto; padding: 20px; box-shadow: 0px 0px 20px rgba(0,0,0,0.2); background-color: #fff; border-radius: 5px;}
-    .list > div {margin: 10px auto;}
     img {width: 320px; height: 240px; background-color: #fff;}
     .hidden {display: none;}
   </style>
@@ -326,7 +321,6 @@ static const char PROGMEM INDEX_HTML[] = R"rawliteral(
         <button id="getStill">Still</button>
         <button id="saveImage" class="hidden">Save</button>
         <button id="stopStream">Stop</button>
-        <button id="listImages" class="hidden">List</button>
       </div>
     </div>
     <form id="infoForm" onsubmit="updateTimestamp(event)">
@@ -342,20 +336,9 @@ static const char PROGMEM INDEX_HTML[] = R"rawliteral(
       </div>
     </form>
   </div>
-  <div class="showListContainer">
-    <label class="showListBtn">
-      <input type="checkbox" onchange="showList(this)">
-    </label>
-  </div>
-  <div class="list hidden" id="listContainer">
-    <div class="showImage">
-      <img id="showContainer" src="" />
-    </div>
-    <div>
-      <iframe id="ifr" height="240px" width="520px"></iframe>
-    </div>
-  </div>
-  
+  <iframe class="hidden" id="ifr"></iframe>
+</body>  
+
 <script>
 
 function showBar(checkbox) {
@@ -363,23 +346,10 @@ function showBar(checkbox) {
     const inputContainer = document.getElementById('inputContainer');
     if (checkbox.checked) {
       barContainer.classList.remove('hidden');
-      inputContainer.style.margin = '-264px auto auto auto';
     } else {
         barContainer.classList.add('hidden');
-        inputContainer.style.margin = '-40px auto auto auto';
       }
   }
-
-function showList(checkbox) {
-  const listContainer = document.getElementById('listContainer');
-  const listImagesBtn = document.getElementById('listImages');
-  if (checkbox.checked) {
-    listContainer.classList.remove('hidden');
-    listImagesBtn.click();
-  } else {
-    listContainer.classList.add('hidden');
-  }
-}
 
 document.addEventListener('DOMContentLoaded', function (event) {
   var baseHost = document.location.origin;
@@ -392,7 +362,6 @@ document.addEventListener('DOMContentLoaded', function (event) {
   const streamBtn = document.getElementById('startStream');
   const stopBtn = document.getElementById('stopStream');
   const saveBtn = document.getElementById('saveImage');
-  const listBtn = document.getElementById('listImages');
   const ifr = document.getElementById('ifr');
   const flash = document.getElementById('flash');
      
@@ -421,11 +390,7 @@ document.addEventListener('DOMContentLoaded', function (event) {
   stopBtn.onclick = function (event) {
     streamState=false;    
     window.stop();
-  }
-
-  listBtn.onclick = function (event) {
-    ifr.src = baseHost+'?listimages';
-  }      
+  }   
    
   stillBtn.onclick = () => {
     stopBtn.click();
@@ -453,11 +418,11 @@ document.addEventListener('DOMContentLoaded', function (event) {
 
     setTimeout(() => {
       saveBtn.click();
-    }, 3000);
+    }, 2000);
 
     setTimeout(() => {
       window.location.reload();
-    }, 10000);
+    }, 5000);
   });
   
 });
@@ -511,77 +476,14 @@ void getStill() {
   ledcWrite(4, flashValue);
 }
 
-String saveImage(String filename) {    
-  String response = ""; 
-  String path_jpg = "/" + filename + ".jpg";
-  
-  if (last_fb == NULL) {
-    Serial.println("fb không có sẵn");
-    return "<font color=red>No captured image available</font>";
-  }
-
-  if (!SD_MMC.begin()) {
-    response = "Không truy cập được thẻ SD";
-    return "<font color=red>SD mount failed</font>";
-  }  
-  
-  fs::FS &fs = SD_MMC; 
-  Serial.printf("Tên ảnh: %s\n", path_jpg.c_str());
-
-  File file = fs.open(path_jpg.c_str(), FILE_WRITE);
-  
-  if (!file) {
-    SD_MMC.end();
-    return "<font color=red>Fail to open file</font>";
-  } else {
-    file.write(last_fb->buf, last_fb->len);
-    Serial.println("Đã lưu thành công");
-  }
-
-  file.close();
-  SD_MMC.end();
-
-  ledcAttachChannel(4, 5000, 8, 4);
-  ledcWrite(4, flashValue);
-
-  return response;
-}
-
 void postImage(String filename) {
-  if(!SD_MMC.begin()) {
-    Serial.println("Không truy cập được thẻ SD");
-    return;
-  }
-
-  String path = filename + ".jpg";
-
-  fs::FS &fs = SD_MMC; 
-  File file = fs.open("/"+path);
-
-  if (!file) {
-    Serial.println("Không thể mở file");
-    return;
-  }
-
-  int fileSize = file.size();
-  uint8_t* buffer = (uint8_t*)malloc(fileSize);
-  if (buffer == nullptr) {
-    Serial.println("Lỗi buffer");
-    file.close();
-    return;
-  }
-
-  file.read(buffer, fileSize);
-
-  delay(100);
-
-  String url = "https://firebasestorage.googleapis.com/v0/b/" + FIREBASE_STORAGE_BUCKET + "/o?name=" + path + "&uploadType=media";
+  String url = "https://firebasestorage.googleapis.com/v0/b/" + FIREBASE_STORAGE_BUCKET + "/o?name=" + pointer + ".jpg&uploadType=media";
 
   HTTPClient http;
   http.begin(url);
   http.addHeader("Content-Type", "image/jpeg");
 
-  int httpResponseCode = http.POST(buffer, fileSize);
+  int httpResponseCode = http.POST(last_fb->buf, last_fb->len);
 
   delay(100);
 
@@ -598,9 +500,6 @@ void postImage(String filename) {
     }
 
   http.end();
-  free(buffer);
-  file.close();
-  SD_MMC.end();
 
   ledcAttachChannel(4, 5000, 8, 4);
   ledcWrite(4, flashValue);  
@@ -703,103 +602,6 @@ void sendInfo(String encodeQuery) {
   ledcWrite(4, flashValue);
 }
 
-String listImages() {
-  if(!SD_MMC.begin()){
-    Serial.println("Không truy cập được thẻ SD");
-    return "<font color=red>SD mount failed</font>";
-  }  
-  
-  fs::FS &fs = SD_MMC; 
-  File root = fs.open("/");
-  if(!root){
-    Serial.println("Không thể mở thư viện");
-    return "<font color=red>Failed to open directory</font>";
-  }
-
-  String list = "";
-  String css = "<style>body{font-family: 'Roboto', sans-serif;background-color: #f4f4f4;}table{width:100%;background-color:#fff;border-collapse:collapse;text-align:center;table-layout:fixed}td{border:none}tr:hover{background-color:#afffce;font-weight:bolder}.button{background-color:#4CAF50;margin:10px auto; padding:10px;color:#fff;border:none;border-radius:5px;cursor:pointer;}.button:hover{background-color:#45a049;transform:scale(1.1);font-weight:bold;}</style>";
-  File file = root.openNextFile();
-  while(file){
-    if(!file.isDirectory()){
-      String filename=String(file.name());
-      if (filename=="/"+pointer+".jpg")
-        list = "<tr><td><button class=\"button\" onclick=\'location.href = location.origin+\"?deleteimage="+String(file.name())+"\";\'>Delete</button></td><td><font>"+String(file.name())+"</font></td><td><button class=\"button\" onclick=\'parent.document.getElementById(\"showContainer\").src=location.origin+\"?showimage="+String(file.name())+"\";\'>Show</button></td></tr>"+list;
-       else
-        list = "<tr><td><button class=\"button\" onclick=\'location.href = location.origin+\"?deleteimage="+String(file.name())+"\";\'>Delete</button></td><td><font>"+String(file.name())+"</font></td><td><button class=\"button\" onclick=\'parent.document.getElementById(\"showContainer\").src=location.origin+\"?showimage="+String(file.name())+"\";\'>Show</button></td></tr>"+list;        
-    }
-    file = root.openNextFile();
-  }
-  if (list == "") list = " ";
-  list = "<table border=1>"+list+"</table>";
-  list = css + list;
-
-  file.close();
-  SD_MMC.end();
-
-  ledcAttachChannel(4, 5000, 8, 4);
-  ledcWrite(4, flashValue);  
-  
-  return list;
-}
-
-String deleteImage(String filename) {
-  if(!SD_MMC.begin()){
-    Serial.println("Không truy cập được thẻ SD");
-    return "SD mount failed";
-  }  
-  
-  fs::FS &fs = SD_MMC;
-  File file = fs.open("/"+filename);
-  String message="";
-  if(fs.remove("/"+filename)){
-      message = "<font color=red>" + filename + " deleted</font>";
-  } else {
-      message = "<font color=red>" + filename + " failed</font>";
-  }
-  file.close();
-  SD_MMC.end();
-
-  ledcAttachChannel(4, 5000, 8, 4);
-  ledcWrite(4, flashValue);  
-
-  return message;
-}
-
-void showImage() {
-  if(!SD_MMC.begin()){
-    Serial.println("Không truy cập được thẻ SD");
-  }  
-
-  fs::FS &fs = SD_MMC;
-  File file = fs.open("/"+pointer);
-  if(!file){
-    Serial.println("Không thể mở file");
-    SD_MMC.end();    
-  }
-  else {
-    byte buf[1024];
-    int i = -1;
-    while (file.available()) {
-      i++;
-      buf[i] = file.read();
-      if (i==(sizeof(buf)-1)) {
-        client.write((const uint8_t *)buf, sizeof(buf));
-        i = -1;
-      }
-      else if (!file.available())
-        client.write((const uint8_t *)buf, (i+1));
-    }
-
-    client.println();
-
-    file.close();
-    SD_MMC.end();    
-  }
-
-  ledcAttachChannel(4, 5000, 8, 4);
-  ledcWrite(4, flashValue);
-}
-
 void getCommand(char c) {
   if (c=='?') receiveState=1;
   if ((c==' ')||(c=='\r')||(c=='\n')) receiveState=0;
@@ -828,17 +630,11 @@ void executeCommand() {
   if (cmd=="getinfo") { 
     sendInfo(pointer);
   } else if (cmd=="saveimage") {
-      saveImage(pointer);
-      delay(100);
       postImage(pointer);
     } else if (cmd=="flash") {
         ledcAttachChannel(4, 5000, 8, 4);
         flashValue = pointer.toInt();
         ledcWrite(4, flashValue);  
-      } else if (cmd=="listimages") {
-          Feedback=listImages();
-        } else if (cmd=="deleteimage") {
-            Feedback=deleteImage(pointer)+"<br>"+listImages();
           } else Feedback="Command is not defined.";
   if (Feedback=="") Feedback = Command;  
 }
@@ -860,9 +656,7 @@ void listenConnection() {
         if (c == '\n') {
           if (currentLine.length() == 0) {    
             if (cmd=="getstill") {
-              getStill(); 
-            } else if (cmd=="showimage") {
-                showImage();            
+              getStill();      
               } else mainpage(); 
             Feedback="";
             break;
