@@ -196,12 +196,14 @@ void updatepage(bool isAjaxRequest) {
       "\"displayRed\":\"" + displayRed + "\", \"displayGreen\":\"" + displayGreen + "\", \"displayGreenNotify\":\"" + displayGreenNotify + "\", \"displayGreenInfo\":\"" + displayGreenInfo + "\"}";
   } else {
     String head = 
+      "<head>"
       "<title>ACS Info Page</title>"
       "<meta charset=\"UTF-8\">"
       "<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">"
       "<link rel=\"preconnect\" href=\"https://fonts.gstatic.com\">"
-      "<link href=\"https://fonts.googleapis.com/css2?family=Roboto&display=swap\" rel=\"stylesheet\">";
-    
+      "<link href=\"https://fonts.googleapis.com/css2?family=Roboto&display=swap\" rel=\"stylesheet\">"
+      "</head>";
+
     String css = 
       "<style>"
         "body {font-family: 'Montserrat', sans-serif; background-color: #f4f4f4;}"
@@ -227,6 +229,7 @@ void updatepage(bool isAjaxRequest) {
       "</style>";
 
     String body = 
+      "<body>"
       "<div class=\"notify\" id=\"notifyGeneral\" style=\"display:" + displayRed + ";\">"
         "<h2 class=\"notifyMainRed\" id=\"redTitle\">" + redTitle + "</h2>"
         "<h3 class=\"notifySub\" id=\"redNotify\">" + redContent + "</h3>"
@@ -258,20 +261,23 @@ void updatepage(bool isAjaxRequest) {
             "<button class=\"cancelBtn\" id=\"cancelBtn\">Hủy bỏ</button>"
             "<button class=\"agreeBtn\" id=\"agreeBtn\">Đồng ý</button>"
         "</div>"
-      "</div>";
+      "</div>"
+      "</body>";
     
     String jvscript = 
       "<script>"
 
+      "document.addEventListener('DOMContentLoaded', function () {"
+
         "function updateDisplayGreen() {"
           "var xhttp = new XMLHttpRequest();"
-          "xhttp.open('GET', '/hideGreen', true);"
+          "xhttp.open('GET', '/hideGreen' + new Date().getTime(), true);"
           "xhttp.send();"
         "}"
 
         "function updateDisplayRed() {"
           "var xhttp = new XMLHttpRequest();"
-          "xhttp.open('GET', '/hideRed', true);"
+          "xhttp.open('GET', '/hideRed' + new Date().getTime(), true);"
           "xhttp.send();"
         "}"
 
@@ -295,7 +301,7 @@ void updatepage(bool isAjaxRequest) {
               "document.getElementById('greenInfo').innerHTML = data.nameReceive + '<br>' + data.uniReceive + '<br>' + data.roomReceive + '<br>' + data.timestampReceive + '.jpg';"
             "}"
           "};" 
-          "xhttp.open('GET', '/', true);" 
+          "xhttp.open('GET', '/' + new Date().getTime(), true);" 
           "xhttp.setRequestHeader('X-Requested-With', 'XMLHttpRequest');" 
           "xhttp.send();" 
           "if (document.getElementById('notifyInfo').style.display === 'block') {"
@@ -328,14 +334,24 @@ void updatepage(bool isAjaxRequest) {
         "agreeBtn.addEventListener('click', () => {"
           "optionContainer.style.display = 'none';"
           "var xhttp = new XMLHttpRequest();"
-          "xhttp.open('GET', '/reset', true);"
+          "xhttp.open('GET', '/reset' + new Date().getTime(), true);"
           "xhttp.send();"
         "});"
+
+      "});"
 
       "</script>";
 
     updateHTML = head + css + body + jvscript;
   }
+
+  client.println("HTTP/1.1 200 OK");
+  client.println("Content-Type: text/html");
+  client.println("Cache-Control: no-cache, must-revalidate, max-age=0");
+  client.println("Pragma: no-cache");
+  client.println("Expires: -1");
+  client.println("Connection: close");
+  client.println();
 
   for (int Index = 0; Index < updateHTML.length(); Index += 1024) {
     client.print(updateHTML.substring(Index, Index+1024));
@@ -514,7 +530,6 @@ void loop() {
 
   delay(100);
 }
-
 
 void writeStringToBlocks(int startBlock, String data) {
   int len = data.length();
