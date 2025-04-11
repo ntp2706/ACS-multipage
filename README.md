@@ -3,6 +3,7 @@
 [![ESP32](https://img.shields.io/badge/ESP32-E7352C?style=for-the-badge&logo=espressif&logoColor=white)](https://www.espressif.com/)
 [![ESP8266](https://img.shields.io/badge/ESP8266-00979D?style=for-the-badge&logo=espressif&logoColor=white)](https://www.espressif.com/)
 [![C++](https://img.shields.io/badge/C++-00599C?style=for-the-badge&logo=cplusplus&logoColor=white)](https://isocpp.org/)
+[![JavaScript](https://img.shields.io/badge/JavaScript-F7DF1E?style=for-the-badge&logo=javascript&logoColor=black)](https://developer.mozilla.org/en-US/docs/Web/JavaScript)
 
 A small project to get familiar with ESP32CAM and RFID
 
@@ -19,6 +20,8 @@ A small project to get familiar with ESP32CAM and RFID
 - **Protocol**:
   - HTTP
   - WebSocket
+  - Network Time Protocol
+  - SPI
 
 - **Hardware**:
   - ESP32CAM for image capture
