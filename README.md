@@ -31,6 +31,9 @@ A small project to get familiar with ESP32CAM and RFID
   - C++ for microcontroller programming
   - JavaScript for Web Server processing
 
+ ## Demo
+[![YouTube Demo](https://img.shields.io/badge/YouTube-Watch_Demo-red?style=flat&logo=youtube)](https://youtu.be/ZuliUIhSI_8)
+
 ---
 
 © 2024 ACS-multipage | Developed by [NTP2706](https://github.com/ntp2706)
