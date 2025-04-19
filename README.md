@@ -32,7 +32,7 @@ A small project to get familiar with ESP32CAM and RFID
   - JavaScript for Web Server processing
 
  ## Demo
-[![YouTube Demo](https://img.shields.io/badge/YouTube-Watch_Demo-red?style=flat&logo=youtube)](https://youtu.be/ZuliUIhSI_8)
+[![YouTube Demo](https://img.shields.io/badge/YouTube-Watch_Demo-red?style=for-the-badge&logo=youtube)](https://youtu.be/ZuliUIhSI_8)
 
 ---
 
